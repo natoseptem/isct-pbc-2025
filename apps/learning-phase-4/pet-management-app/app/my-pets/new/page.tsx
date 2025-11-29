@@ -16,6 +16,7 @@ export default function NewPetPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [identifying, setIdentifying] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -41,26 +42,48 @@ export default function NewPetPage() {
     setUploading(true)
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
+      // 画像をアップロード
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
 
-      const response = await fetch("/api/pets/upload", {
-        method: "POST",
+      const uploadResponse = await fetch('/api/pets/upload', {
+        method: 'POST',
         headers: {
-          "x-user-id": user.id,
+          'x-user-id': user.id,
         },
-        body: formData,
+        body: uploadFormData,
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to upload image")
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image')
       }
 
-      const data = await response.json()
-      setFormData((prev) => ({ ...prev, imageUrl: data.imageUrl }))
+      const uploadData = await uploadResponse.json()
+      setFormData((prev) => ({ ...prev, imageUrl: uploadData.imageUrl }))
+
+      // カテゴリーが選択されている場合、品種を自動識別
+      if (formData.category) {
+        setIdentifying(true)
+
+        const identifyFormData = new FormData()
+        identifyFormData.append('file', file)
+        identifyFormData.append('category', formData.category)
+
+        const identifyResponse = await fetch('/api/pets/identify', {
+          method: 'POST',
+          body: identifyFormData,
+        })
+
+        if (identifyResponse.ok) {
+          const identifyData = await identifyResponse.json()
+          setFormData((prev) => ({ ...prev, breed: identifyData.breed }))
+        }
+
+        setIdentifying(false)
+      }
     } catch (error) {
-      console.error("Upload error:", error)
-      alert("Failed to upload image")
+      console.error('Upload error:', error)
+      alert('Failed to upload image')
     } finally {
       setUploading(false)
     }
@@ -152,6 +175,10 @@ export default function NewPetPage() {
                   onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
                 />
               </div>
+
+              {identifying && (
+                <p className="text-sm text-blue-600">AIが品種を識別中...</p>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="birthday">Birthday</Label>
